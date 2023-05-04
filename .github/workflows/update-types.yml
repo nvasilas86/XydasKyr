@@ -13,6 +13,10 @@ on:
         description: 'The path to generate types for (e.g. "compute", or "keyvault"). Leave blank to generate all types.'
         required: false
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   update-types:
     name: Update Types
@@ -103,3 +107,37 @@ jobs:
             Generate types for ${{ steps.get_swagger_gh_uri.outputs.gh_uri }}
           labels: autogenerate
           draft: false
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.PUBLISH_CLIENT_ID }}
+          tenant-id: ${{ secrets.PUBLISH_TENANT_ID }}
+          subscription-id: ${{ secrets.PUBLISH_SUBSCRIPTION_ID }}
+
+      - name: Tar+Gzip all json files under the generated folder
+        run: find . -name '*.json' -print0 | tar -czf ../types.tgz --null --files-from -
+        working-directory: generated
+
+      - name: List all files in the generated directory
+        run: ls -la
+
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+
+      - name: Login to OCI Registry using ORAS
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.0.0
+      
+      - name: Login to OCI Registry using ORAS
+        run: |
+          az acr login -t -n ${{ secrets.PUBLISH_REGISTRY_SERVER }} -o tsv --query accessToken | oras login --password-stdin ${{ secrets.PUBLISH_REGISTRY_SERVER }}
+
+      - name: Publish OCI Artifact
+        run: >-
+          oras push ${{ secrets.PUBLISH_REGISTRY_SERVER }}/bicep/providers/az:protocolv1,${{ steps.date.outputs.date }} 
+          --annotation bicep.serialization.format=v1 
+          --artifact-type application/vnd.ms.bicep.provider.artifact 
+          types.tgz:application/vnd.ms.bicep.provider.types.layer.v1.tar+gzip
