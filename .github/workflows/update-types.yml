@@ -139,5 +139,5 @@ jobs:
         run: >-
           oras push ${{ secrets.PUBLISH_REGISTRY_SERVER }}/bicep/providers/az:protocolv1,${{ steps.date.outputs.date }} 
           --annotation bicep.serialization.format=v1 
-          --artifact-type application/vnd.ms.bicep.provider.artifact 
+          --artifact-type application/vnd.ms.bicep.provider.artifact.v1
           types.tgz:application/vnd.ms.bicep.provider.types.layer.v1.tar+gzip
